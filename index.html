@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Latest News</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+      background: #fff8ee;
+      color: #2d241c;
+    }
+
+    .page {
+      max-width: 1100px;
+      margin: auto;
+      padding: 35px 18px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 35px;
+    }
+
+    .cross {
+      font-size: 36px;
+      color: #9b642e;
+      margin-bottom: 8px;
+    }
+
+    .label {
+      font-size: 14px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #a9743e;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 42px;
+      color: #5a3217;
+      font-weight: 800;
+    }
+
+    .subtitle {
+      margin-top: 10px;
+      font-size: 18px;
+      color: #7c6b59;
+    }
+
+    .news-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 22px;
+    }
+
+    .card {
+      background: #ffffff;
+      border-radius: 22px;
+      overflow: hidden;
+      border: 1px solid #efdcc4;
+      box-shadow: 0 8px 24px rgba(90, 50, 23, 0.12);
+      transition: 0.2s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 14px 32px rgba(90, 50, 23, 0.18);
+    }
+
+    .image-box {
+      height: 230px;
+      background: #f4e5d1;
+      overflow: hidden;
+    }
+
+    .image-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .content {
+      padding: 18px 20px 22px;
+    }
+
+    .date {
+      display: inline-block;
+      background: #fff0d9;
+      color: #8b5725;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 13px;
+    }
+
+    .description {
+      font-size: 17px;
+      line-height: 1.7;
+      white-space: pre-wrap;
+    }
+
+    .loading,
+    .empty,
+    .error {
+      text-align: center;
+      background: #ffffff;
+      border-radius: 20px;
+      padding: 35px 20px;
+      color: #7c6b59;
+      font-size: 18px;
+      border: 1px dashed #d8ba95;
+      grid-column: 1 / -1;
+    }
+
+    .error {
+      color: #9b2f2f;
+      border-color: #e0a0a0;
+      background: #fff4f4;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 35px;
+      color: #9a8065;
+      font-size: 14px;
+    }
+
+    @media (max-width: 900px) {
+      .news-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 600px) {
+      .page {
+        padding: 25px 12px;
+      }
+
+      h1 {
+        font-size: 34px;
+      }
+
+      .subtitle {
+        font-size: 16px;
+      }
+
+      .news-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .image-box {
+        height: 240px;
+      }
+
+      .description {
+        font-size: 16px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page">
+    <div class="header">
+      <div class="cross">✝</div>
+      <div class="label">Church Service Updates</div>
+      <h1>Latest News</h1>
+      <div class="subtitle">Latest moments, activities, and service updates</div>
+    </div>
+
+    <div id="newsContainer" class="news-grid">
+      <div class="loading">Loading latest news...</div>
+    </div>
+
+    <div class="footer">
+      Updated automatically from AppSheet
+    </div>
+  </div>
+
+  <script>
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzIRfLqhw9QW8oi_HycYcFeKFdprOvYQ53KYBCjCyGRk3Hg_Kzgo1IlU0jtgmPAlX4y/exec";
+
+    function renderNews(newsItems) {
+      const container = document.getElementById("newsContainer");
+
+      if (!Array.isArray(newsItems)) {
+        container.innerHTML = `
+          <div class="error">
+            An error occurred while loading the news.
+          </div>
+        `;
+        return;
+      }
+
+      if (newsItems.length === 0) {
+        container.innerHTML = `
+          <div class="empty">
+            No news is available at the moment.
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = newsItems.map(item => {
+        const image = item.image || "";
+        const date = item.date || "";
+        const description = escapeHtml(item.description || "");
+
+        return `
+          <div class="card">
+            <div class="image-box">
+              ${image ? `<img src="${image}" alt="News image">` : ""}
+            </div>
+
+            <div class="content">
+              <div class="date">${date}</div>
+              <div class="description">${description}</div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function escapeHtml(text) {
+      return text
+        .toString()
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function showError() {
+      const container = document.getElementById("newsContainer");
+      container.innerHTML = `
+        <div class="error">
+          We could not load the news. Please try again later.
+        </div>
+      `;
+    }
+
+    const script = document.createElement("script");
+    script.src = APPS_SCRIPT_URL + "?callback=renderNews&t=" + new Date().getTime();
+    script.onerror = showError;
+    document.body.appendChild(script);
+  </script>
+</body>
+</html>
