@@ -194,51 +194,44 @@
   </div>
 
   <script>
-    const PUBLISHED_SHEET_URL =
-      "https://docs.google.com/spreadsheets/d/e/2PACX-1vR7OE6IrI6mRhSuWFmEQel_cjsrZefWBRJpGMESvFt7ivgyIjvmMwu3vAsEzALqNUrPm5Ve4jczbSSu/pubhtml?gid=1863532918&single=true";
+    const PUBLISHED_CSV_URL =
+      "https://docs.google.com/spreadsheets/d/e/2PACX-1vR7OE6IrI6mRhSuWFmEQel_cjsrZefWBRJpGMESvFt7ivgyIjvmMwu3vAsEzALqNUrPm5Ve4jczbSSu/pub?gid=1863532918&single=true&output=csv";
 
     const MAX_ITEMS = 10;
 
-    async function loadNewsFromPublishedSheet() {
+    async function loadNewsFromCsv() {
       try {
         const proxyUrl =
           "https://api.allorigins.win/raw?url=" +
-          encodeURIComponent(PUBLISHED_SHEET_URL + "&cachebust=" + new Date().getTime());
+          encodeURIComponent(PUBLISHED_CSV_URL + "&cachebust=" + new Date().getTime());
 
         const response = await fetch(proxyUrl);
 
         if (!response.ok) {
-          throw new Error("Could not fetch published sheet. Status: " + response.status);
+          throw new Error("CSV request failed. Status: " + response.status);
         }
 
-        const htmlText = await response.text();
-        const newsItems = parsePublishedSheetHtml(htmlText);
+        const csvText = await response.text();
 
+        if (!csvText || csvText.trim() === "") {
+          throw new Error("CSV is empty.");
+        }
+
+        const newsItems = parseCsvToNews(csvText);
         renderNews(newsItems);
       } catch (error) {
-        showError("Could not load the published Google Sheet. " + error.message);
+        showError("Could not load the published Google Sheet CSV. " + error.message);
       }
     }
 
-    function parsePublishedSheetHtml(htmlText) {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(htmlText, "text/html");
+    function parseCsvToNews(csvText) {
+      const rows = parseCsv(csvText);
 
-      const tables = doc.querySelectorAll("table");
-
-      if (!tables || tables.length === 0) {
-        throw new Error("No table found in the published sheet.");
-      }
-
-      const table = tables[0];
-      const allRows = Array.from(table.querySelectorAll("tr"));
-
-      if (allRows.length < 2) {
+      if (!rows || rows.length < 2) {
         return [];
       }
 
-      const headerCells = Array.from(allRows[0].querySelectorAll("td, th"));
-      const headers = headerCells.map(cell => cleanText(cell.textContent));
+      const headers = rows[0].map(h => cleanText(h));
 
       const dateIndex = headers.indexOf("News Date");
       const imageIndex = headers.indexOf("PublicImageURL");
@@ -251,17 +244,13 @@
         );
       }
 
-      const dataRows = allRows.slice(1);
-
-      const newsItems = dataRows
+      const newsItems = rows
+        .slice(1)
         .map(row => {
-          const cells = Array.from(row.querySelectorAll("td, th"));
-          const values = cells.map(cell => cleanText(cell.textContent));
-
-          const rawDate = values[dateIndex] || "";
-          const image = values[imageIndex] || "";
-          const description = values[descIndex] || "";
-          const show = values[showIndex] || "";
+          const rawDate = row[dateIndex] || "";
+          const image = row[imageIndex] || "";
+          const description = row[descIndex] || "";
+          const show = row[showIndex] || "";
 
           return {
             date: rawDate,
@@ -278,6 +267,61 @@
       return newsItems;
     }
 
+    function parseCsv(text) {
+      const rows = [];
+      let currentRow = [];
+      let currentValue = "";
+      let insideQuotes = false;
+
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        const nextChar = text[i + 1];
+
+        if (char === '"' && insideQuotes && nextChar === '"') {
+          currentValue += '"';
+          i++;
+          continue;
+        }
+
+        if (char === '"') {
+          insideQuotes = !insideQuotes;
+          continue;
+        }
+
+        if (char === "," && !insideQuotes) {
+          currentRow.push(currentValue);
+          currentValue = "";
+          continue;
+        }
+
+        if ((char === "\n" || char === "\r") && !insideQuotes) {
+          if (char === "\r" && nextChar === "\n") {
+            i++;
+          }
+
+          currentRow.push(currentValue);
+
+          if (currentRow.some(cell => cell.trim() !== "")) {
+            rows.push(currentRow);
+          }
+
+          currentRow = [];
+          currentValue = "";
+          continue;
+        }
+
+        currentValue += char;
+      }
+
+      currentRow.push(currentValue);
+
+      if (currentRow.some(cell => cell.trim() !== "")) {
+        rows.push(currentRow);
+      }
+
+      return rows;
+    }
+
     function renderNews(newsItems) {
       const container = document.getElementById("newsContainer");
 
@@ -291,9 +335,9 @@
       }
 
       container.innerHTML = newsItems.map(item => {
-        const image = item.image || "";
-        const date = item.date || "";
-        const description = escapeHtml(item.description || "");
+        const image = cleanText(item.image || "");
+        const date = cleanText(item.date || "");
+        const description = escapeHtml(cleanText(item.description || ""));
 
         return `
           <div class="card">
@@ -380,7 +424,7 @@
       `;
     }
 
-    loadNewsFromPublishedSheet();
+    loadNewsFromCsv();
   </script>
 </body>
 </html>
