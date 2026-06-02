@@ -198,22 +198,25 @@
     const SHEET_GID = "1863532918";
     const MAX_ITEMS = 10;
 
-    window.google = {
-      visualization: {
-        Query: {
-          setResponse: function(response) {
-            try {
-              handleGoogleSheetResponse(response);
-            } catch (error) {
-              showError("Error while processing sheet data: " + error.message);
-            }
-          }
-        }
+    let sheetLoaded = false;
+
+    window.google = window.google || {};
+    window.google.visualization = window.google.visualization || {};
+    window.google.visualization.Query = window.google.visualization.Query || {};
+
+    window.google.visualization.Query.setResponse = function(response) {
+      sheetLoaded = true;
+
+      try {
+        handleGoogleSheetResponse(response);
+      } catch (error) {
+        showError("Error while processing sheet data: " + error.message);
       }
     };
 
     function loadNewsFromGoogleSheet() {
       const oldScript = document.getElementById("googleSheetScript");
+
       if (oldScript) {
         oldScript.remove();
       }
@@ -224,16 +227,22 @@
       script.src =
         "https://docs.google.com/spreadsheets/d/e/" +
         PUBLISHED_SHEET_ID +
-        "/gviz/tq?tqx=responseHandler:google.visualization.Query.setResponse&gid=" +
+        "/gviz/tq?tqx=out:json&gid=" +
         SHEET_GID +
-        "&t=" +
+        "&headers=1&cachebust=" +
         new Date().getTime();
 
       script.onerror = function() {
-        showError("Could not load the published Google Sheet.");
+        showError("Could not load the published Google Sheet. Please check that the sheet is published to the web.");
       };
 
       document.body.appendChild(script);
+
+      setTimeout(function() {
+        if (!sheetLoaded) {
+          showError("The Google Sheet did not respond. Please check the published sheet link and column names.");
+        }
+      }, 10000);
     }
 
     function handleGoogleSheetResponse(response) {
@@ -251,7 +260,9 @@
       const showIndex = cols.indexOf("ShowOnWebsite");
 
       if (dateIndex === -1 || imageIndex === -1 || descIndex === -1 || showIndex === -1) {
-        showError("Column names are not correct. Required columns: News Date, PublicImageURL, Description, ShowOnWebsite");
+        showError(
+          "Column names are not correct. Required columns: News Date, PublicImageURL, Description, ShowOnWebsite"
+        );
         return;
       }
 
@@ -339,6 +350,7 @@
       }
 
       const text = value.toString().trim().toLowerCase();
+
       return text === "true" || text === "yes" || text === "1";
     }
 
@@ -349,12 +361,14 @@
 
       if (typeof value === "string" && value.startsWith("Date(")) {
         const date = parseGoogleDate(value);
+
         if (date) {
           return formatDate(date);
         }
       }
 
       const parsedDate = new Date(value);
+
       if (!isNaN(parsedDate.getTime())) {
         return formatDate(parsedDate);
       }
@@ -373,6 +387,7 @@
       }
 
       const parsedDate = new Date(value);
+
       return isNaN(parsedDate.getTime()) ? 0 : parsedDate.getTime();
     }
 
