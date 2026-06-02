@@ -4,6 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+  <!-- Prevent browser caching -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+
   <title>Latest News</title>
 
   <style>
@@ -221,7 +226,7 @@
         return `
           <div class="card">
             <div class="image-box">
-              ${image ? `<img src="${image}" alt="News image">` : ""}
+              ${image ? `<img src="${addCacheBuster(image)}" alt="News image">` : ""}
             </div>
 
             <div class="content">
@@ -241,6 +246,13 @@
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+    }
+
+    function addCacheBuster(url) {
+      if (!url) return "";
+
+      const separator = url.includes("?") ? "&" : "?";
+      return url + separator + "v=" + new Date().getTime();
     }
 
     function showError() {
