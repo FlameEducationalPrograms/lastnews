@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Prevent browser caching -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
@@ -195,21 +194,101 @@
   </div>
 
   <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzIRfLqhw9QW8oi_HycYcFeKFdprOvYQ53KYBCjCyGRk3Hg_Kzgo1IlU0jtgmPAlX4y/exec";
+    const PUBLISHED_SHEET_ID = "2PACX-1vR7OE6IrI6mRhSuWFmEQel_cjsrZefWBRJpGMESvFt7ivgyIjvmMwu3vAsEzALqNUrPm5Ve4jczbSSu";
+    const SHEET_GID = "1863532918";
+    const MAX_ITEMS = 10;
+
+    window.google = {
+      visualization: {
+        Query: {
+          setResponse: function(response) {
+            try {
+              handleGoogleSheetResponse(response);
+            } catch (error) {
+              showError("Error while processing sheet data: " + error.message);
+            }
+          }
+        }
+      }
+    };
+
+    function loadNewsFromGoogleSheet() {
+      const oldScript = document.getElementById("googleSheetScript");
+      if (oldScript) {
+        oldScript.remove();
+      }
+
+      const script = document.createElement("script");
+      script.id = "googleSheetScript";
+
+      script.src =
+        "https://docs.google.com/spreadsheets/d/e/" +
+        PUBLISHED_SHEET_ID +
+        "/gviz/tq?tqx=responseHandler:google.visualization.Query.setResponse&gid=" +
+        SHEET_GID +
+        "&t=" +
+        new Date().getTime();
+
+      script.onerror = function() {
+        showError("Could not load the published Google Sheet.");
+      };
+
+      document.body.appendChild(script);
+    }
+
+    function handleGoogleSheetResponse(response) {
+      if (!response || !response.table) {
+        showError("Invalid response from Google Sheet.");
+        return;
+      }
+
+      const cols = response.table.cols.map(col => (col.label || "").trim());
+      const rows = response.table.rows || [];
+
+      const dateIndex = cols.indexOf("News Date");
+      const imageIndex = cols.indexOf("PublicImageURL");
+      const descIndex = cols.indexOf("Description");
+      const showIndex = cols.indexOf("ShowOnWebsite");
+
+      if (dateIndex === -1 || imageIndex === -1 || descIndex === -1 || showIndex === -1) {
+        showError("Column names are not correct. Required columns: News Date, PublicImageURL, Description, ShowOnWebsite");
+        return;
+      }
+
+      const newsItems = rows
+        .map(row => {
+          const cells = row.c || [];
+
+          const rawDateCell = cells[dateIndex];
+          const rawImageCell = cells[imageIndex];
+          const rawDescCell = cells[descIndex];
+          const rawShowCell = cells[showIndex];
+
+          const rawDate = getCellValue(rawDateCell);
+          const formattedDate = getCellFormattedValue(rawDateCell) || formatDateValue(rawDate);
+          const image = getCellValue(rawImageCell);
+          const description = getCellValue(rawDescCell);
+          const show = getCellValue(rawShowCell);
+
+          return {
+            date: formattedDate,
+            dateSortValue: getDateSortValue(rawDate),
+            image: image || "",
+            description: description || "",
+            show: show
+          };
+        })
+        .filter(item => isVisible(item.show))
+        .sort((a, b) => b.dateSortValue - a.dateSortValue)
+        .slice(0, MAX_ITEMS);
+
+      renderNews(newsItems);
+    }
 
     function renderNews(newsItems) {
       const container = document.getElementById("newsContainer");
 
-      if (!Array.isArray(newsItems)) {
-        container.innerHTML = `
-          <div class="error">
-            An error occurred while loading the news.
-          </div>
-        `;
-        return;
-      }
-
-      if (newsItems.length === 0) {
+      if (!Array.isArray(newsItems) || newsItems.length === 0) {
         container.innerHTML = `
           <div class="empty">
             No news is available at the moment.
@@ -230,12 +309,93 @@
             </div>
 
             <div class="content">
-              <div class="date">${date}</div>
+              <div class="date">${escapeHtml(date)}</div>
               <div class="description">${description}</div>
             </div>
           </div>
         `;
       }).join("");
+    }
+
+    function getCellValue(cell) {
+      if (!cell || cell.v === null || cell.v === undefined) {
+        return "";
+      }
+
+      return cell.v;
+    }
+
+    function getCellFormattedValue(cell) {
+      if (!cell || cell.f === null || cell.f === undefined) {
+        return "";
+      }
+
+      return cell.f;
+    }
+
+    function isVisible(value) {
+      if (value === true) {
+        return true;
+      }
+
+      const text = value.toString().trim().toLowerCase();
+      return text === "true" || text === "yes" || text === "1";
+    }
+
+    function formatDateValue(value) {
+      if (!value) {
+        return "";
+      }
+
+      if (typeof value === "string" && value.startsWith("Date(")) {
+        const date = parseGoogleDate(value);
+        if (date) {
+          return formatDate(date);
+        }
+      }
+
+      const parsedDate = new Date(value);
+      if (!isNaN(parsedDate.getTime())) {
+        return formatDate(parsedDate);
+      }
+
+      return value.toString();
+    }
+
+    function getDateSortValue(value) {
+      if (!value) {
+        return 0;
+      }
+
+      if (typeof value === "string" && value.startsWith("Date(")) {
+        const date = parseGoogleDate(value);
+        return date ? date.getTime() : 0;
+      }
+
+      const parsedDate = new Date(value);
+      return isNaN(parsedDate.getTime()) ? 0 : parsedDate.getTime();
+    }
+
+    function parseGoogleDate(value) {
+      const match = value.match(/Date\((\d+),(\d+),(\d+)\)/);
+
+      if (!match) {
+        return null;
+      }
+
+      const year = Number(match[1]);
+      const month = Number(match[2]);
+      const day = Number(match[3]);
+
+      return new Date(year, month, day);
+    }
+
+    function formatDate(date) {
+      const day = String(date.getDate()).padStart(2, "0");
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const year = date.getFullYear();
+
+      return day + "/" + month + "/" + year;
     }
 
     function escapeHtml(text) {
@@ -255,19 +415,17 @@
       return url + separator + "v=" + new Date().getTime();
     }
 
-    function showError() {
+    function showError(message) {
       const container = document.getElementById("newsContainer");
+
       container.innerHTML = `
         <div class="error">
-          We could not load the news. Please try again later.
+          ${escapeHtml(message)}
         </div>
       `;
     }
 
-    const script = document.createElement("script");
-    script.src = APPS_SCRIPT_URL + "?callback=renderNews&t=" + new Date().getTime();
-    script.onerror = showError;
-    document.body.appendChild(script);
+    loadNewsFromGoogleSheet();
   </script>
 </body>
 </html>
