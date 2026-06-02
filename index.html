@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FLAME Function | St. Paul Coptic Service</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <a class="corner-logo" href="#page-title" aria-label="FLAME Function home">
+      <img src="flame-logo.png" alt="FLAME Function St. Paul Coptic Service logo" />
+    </a>
+
+    <main class="page-shell">
+      <section class="hero" aria-labelledby="page-title">
+        <div class="hero-copy">
+          <p class="eyebrow">St. Paul Coptic Service</p>
+          <h1 id="page-title">FLAME Function</h1>
+          <p class="intro">
+            Last news and service updates for our church family, gathered in one quiet place.
+          </p>
+        </div>
+      </section>
+
+      <section class="news-section" aria-labelledby="news-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Latest Updates</p>
+            <h2 id="news-title">Last News</h2>
+          </div>
+          <button class="refresh-button" type="button" id="refreshNews">Refresh</button>
+        </div>
+
+        <div class="status" id="statusMessage" role="status">Loading latest news...</div>
+        <div class="news-grid" id="newsGrid" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>
